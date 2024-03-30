@@ -1,0 +1,3 @@
+git clone https://github.com/ldurans/izing.open.io.git
+cd izing.open.io
+git checkout v2.0.1

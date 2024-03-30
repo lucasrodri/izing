@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  postgresql-zdg:
+    image: postgres:14.8-alpine3.18
+    container_name: postgresql-zdg
+    environment:
+      POSTGRES_USER: izing
+      POSTGRES_PASSWORD: "123mudar"
+      POSTGRES_DB: "izing"
+      TZ: "America/Sao_Paulo"
+    volumes:
+      - /tmp/data_izing:/var/lib/postgresql/data 
+    ports:
+      - "5432:5432"
+    restart: always
+    networks:
+      - zdg_network
+  
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
+      PGADMIN_DEFAULT_PASSWORD: "123mudar"
+    ports:
+      - "16543:80"
+    depends_on:
+      - postgresql-zdg
+    networks:
+      - zdg_network
+
+  redis-zdg:
+    image: redis:latest
+    container_name: redis-zdg
+    command: redis-server --appendonly yes --requirepass "password"
+    environment:
+      TZ: "America/Sao_Paulo"
+    ports:
+      - "6379:6379"
+    restart: always
+    networks:
+      - zdg_network
+
+  rabbitmq-zdg:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq-zdg
+    hostname: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=123456
+    volumes:
+      - /tmp/rabbit_data_izing:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: always
+    networks:
+      - zdg_network
+
+  backend-izing:
+    build:
+      context: izing.open.io/backend
+      dockerfile: ./Dockerfile
+    container_name: backend-izing
+    env_file:
+      - ./izing.open.io/backend/.env
+    stdin_open: true
+    tty: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis-zdg
+      - postgresql-zdg
+      - rabbitmq-zdg
+    ports:
+      - "3100:3100"
+    volumes:
+      - .data/.wwebjs_auth:/app/.wwebjs_auth
+      - .data/medias:/app/public
+      #- ./izing.open.io/backend:/app
+    networks:
+      - zdg_network
+
+  frontend-izing:
+    image: node:16.20.2
+    container_name: frontend-izing
+    volumes:
+      - ./izing.open.io/frontend:/app
+    working_dir: /app
+    command: tail -f /dev/null
+    ports:
+      - "3101:3100"
+    networks:
+      - zdg_network
+
+networks:
+  zdg_network:
+    driver: bridge
